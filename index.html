@@ -81,11 +81,11 @@
     </div>
     
     <div class="dashboard">
-        <div id="statusBox" class="status info">Gata! Apasă butonul de sus sau alege fișierul local.</div>
+        <div id="statusBox" class="status info">Sistem gata. Apasă butonul de sus sau alege fișierul manual.</div>
         
         <div class="controls">
             <div class="control-group">
-                <label>Fișier Local (Dacă nu merge butonul de sus):</label>
+                <label>Fișier Local (Opțional):</label>
                 <input type="file" accept=".html" onchange="handleFileUpload(event)">
             </div>
             <div class="control-group">
@@ -134,7 +134,7 @@
         showStatus('info', 'Se descarcă datele...');
         fetch('inactive.html')
             .then(response => {
-                if (!response.ok) throw new Error('Nu am găsit inactive.html');
+                if (!response.ok) throw new Error('Nu am găsit inactive.html pe server.');
                 return response.text();
             })
             .then(html => {
@@ -162,51 +162,32 @@
         const doc = parser.parseFromString(htmlText, 'text/html');
         playersData = [];
         
-        // Citim pagina de sus în jos (Element cu Element) pentru a asocia corect Numele cu Tabelul
         const elements = doc.querySelectorAll('.ika-member-name, table');
         let currentPlayer = "Necunoscut";
 
         elements.forEach(el => {
             if (el.classList.contains('ika-member-name')) {
-                // Actualizăm numele jucătorului (eliminăm punctul alb/roșu)
                 currentPlayer = el.textContent.replace('⚪', '').replace('🔴', '').trim();
             } else if (el.tagName.toLowerCase() === 'table') {
                 
-                // Căutăm exact unde sunt coloanele ca să nu mai extragă "1" din greșeală
-                let woodIdx = 1; // Presupunere de bază
-                let coordsIdx = 2; // Presupunere de bază
-                let foundLevel = false;
-
-                const ths = el.querySelectorAll('th');
-                ths.forEach((th, index) => {
-                    const text = th.textContent.toLowerCase();
-                    if (text.includes('level') && !foundLevel) {
-                        woodIdx = index; // Găsim EXACT coloana cu "Level"
-                        foundLevel = true;
-                    }
-                    if (text.includes('coords')) {
-                        coordsIdx = index; // Găsim EXACT coloana cu "Coords"
-                    }
-                });
-
-                // Acum extragem datele de pe fiecare rând, pe baza coloanelor detectate
-                const rows = el.querySelectorAll('tr');
+                const rows = el.querySelectorAll('tbody tr');
+                
                 rows.forEach(row => {
                     const cells = row.querySelectorAll('td');
-                    if (cells.length > coordsIdx) {
+                    // Conform structurii tale, avem minim 6 coloane.
+                    // 0: City | 1: Level | 2: Coords | 3: Wonder | 4: Wood | 5: Tradegood
+                    if (cells.length >= 6) {
                         const city = cells[0].textContent.trim();
-                        const wood = cells[woodIdx] ? cells[woodIdx].textContent.trim() : "-";
-                        const coords = cells[coordsIdx] ? cells[coordsIdx].textContent.trim() : "";
+                        const coords = cells[2].textContent.trim();
+                        const wood = cells[4].textContent.trim(); // Pădurea este la index 4
                         
                         if (coords.includes(':')) {
                             let luxLevel = "0";
-                            // Luxul e în general sub forma de poză + număr în paranteză (ex: (29))
-                            for (let i = 3; i < cells.length; i++) {
-                                const match = cells[i].textContent.match(/\((\d+)\)/);
-                                if (match) {
-                                    luxLevel = match[1];
-                                    break;
-                                }
+                            // Nivelul luxului este la index 5, în interiorul parantezelor
+                            const tradegoodText = cells[5].textContent.trim();
+                            const match = tradegoodText.match(/\((\d+)\)/);
+                            if (match) {
+                                luxLevel = match[1];
                             }
                             
                             playersData.push({
