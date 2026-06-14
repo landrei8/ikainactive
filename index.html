@@ -10,6 +10,7 @@
             --accent: #3498db;
             --success: #27ae60;
             --danger: #e74c3c;
+            --warning: #f39c12;
             --bg: #f8f9fa;
             --card-bg: #ffffff;
             --text: #333333;
@@ -59,12 +60,14 @@
         .btn {
             background-color: var(--accent); color: white; border: none;
             padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold;
-            transition: opacity 0.2s;
+            transition: opacity 0.2s; text-transform: uppercase; font-size: 0.85rem;
         }
         .btn:hover { opacity: 0.8; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-danger { background-color: var(--danger); }
         .btn-success { background-color: var(--success); }
-        .btn-small { padding: 5px 10px; font-size: 0.85rem; }
+        .btn-warning { background-color: var(--warning); }
+        .btn-small { padding: 6px 10px; font-size: 0.8rem; margin-right: 4px; }
 
         .status { padding: 10px; border-radius: 5px; margin-bottom: 20px; font-size: 0.9rem; display: none; }
         .status.success { background: #d4edda; color: #155724; display: block; }
@@ -72,14 +75,23 @@
         .status.info { background: #e2e3e5; color: #383d41; display: block; }
 
         .table-section { margin-bottom: 40px; }
-        .table-section h2 { border-bottom: 2px solid var(--primary); padding-bottom: 10px; color: var(--primary); }
+        .table-section h2 { padding-bottom: 10px; }
+        .table-section.saved h2 { color: var(--success); border-bottom: 2px solid var(--success); }
+        .table-section.ignored h2 { color: var(--danger); border-bottom: 2px solid var(--danger); }
+        .table-section.main h2 { color: var(--primary); border-bottom: 2px solid var(--primary); }
 
         table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
-        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border); }
+        th, td { padding: 10px 15px; text-align: left; border-bottom: 1px solid var(--border); }
         th { background-color: #f1f3f5; color: var(--primary); font-weight: 600; }
-        tbody tr { transition: background-color 0.2s; cursor: context-menu; }
         tbody tr:hover { background-color: #f1f8ff; }
-        .empty-state { text-align: center; padding: 40px; color: #777; font-style: italic; }
+        .empty-state { text-align: center; padding: 30px; color: #777; font-style: italic; }
+
+        .action-cell { white-space: nowrap; }
+
+        .pagination {
+            display: flex; justify-content: center; align-items: center; gap: 20px; margin-top: 20px;
+        }
+        .pagination span { font-weight: bold; color: var(--primary); }
 
         .footer { text-align: center; margin-top: 40px; padding: 20px; font-size: 0.85rem; color: #777; border-top: 1px solid var(--border); }
     </style>
@@ -89,96 +101,122 @@
 <div class="container">
     <div class="header">
         <h1>Ikariam - Radar de Inactivi</h1>
-        <button class="btn" onclick="fetchDataFromServer()">🔄 Încarcă Date (inactive.html)</button>
+        <button class="btn" onclick="fetchDataFromServer()">Incarca Date de pe Server</button>
     </div>
     
     <div class="dashboard">
-        <div id="statusBox" class="status info">Sistem gata. Apasă butonul de sus pentru a prelua datele de pe server.</div>
+        <div id="statusBox" class="status info">Sistem gata. Apasa butonul de sus pentru a prelua datele de pe server.</div>
         
         <div class="controls">
             <div class="control-group">
-                <label>Fișier Local (Opțional):</label>
+                <label>Fisier Local (Optional):</label>
                 <input type="file" accept=".html" onchange="handleFileUpload(event)">
             </div>
             <div class="control-group">
-                <label>Coordonate bază (X:Y):</label>
+                <label>Coordonate baza (X:Y):</label>
                 <div class="coord-inputs">
-                    <input type="number" id="baseX" value="57" min="1" max="100" onchange="applyFilters()">
+                    <input type="number" id="baseX" value="57" min="1" max="100" onchange="applyFilters(true)">
                     <span> : </span>
-                    <input type="number" id="baseY" value="70" min="1" max="100" onchange="applyFilters()">
+                    <input type="number" id="baseY" value="70" min="1" max="100" onchange="applyFilters(true)">
                 </div>
             </div>
             <div class="control-group">
-                <label>Distanță max: <span id="distValue" style="color:var(--accent);font-weight:bold;">20</span> insule</label>
-                <input type="range" id="distSlider" min="0" max="150" value="20" oninput="document.getElementById('distValue').innerText=this.value" onchange="applyFilters()">
+                <label>Distanta max: <span id="distValue" style="color:var(--accent);font-weight:bold;">20</span> insule</label>
+                <input type="range" id="distSlider" min="0" max="150" value="20" oninput="document.getElementById('distValue').innerText=this.value" onchange="applyFilters(true)">
             </div>
             <div class="control-group">
-                <label>Caută Jucător / Oraș:</label>
-                <input type="text" id="searchInput" placeholder="Tastează un nume..." onkeyup="applyFilters()">
-            </div>
-            <div class="control-group" style="justify-content: flex-end;">
-                <button class="btn btn-danger" onclick="resetIgnored()"><span id="ignoredCount">0</span> Orașe Ignorate (Reset)</button>
+                <label>Cauta Jucator / Oras:</label>
+                <input type="text" id="searchInput" placeholder="Tasteaza un nume..." onkeyup="applyFilters(true)">
             </div>
         </div>
 
-        <div class="table-section">
-            <h2>🎯 Lista Principală (Inactivi)</h2>
-            <div style="overflow-x: auto;">
-                <table id="dataTable">
-                    <thead>
-                        <tr>
-                            <th>Jucător</th>
-                            <th>Oraș</th>
-                            <th>Coordonate</th>
-                            <th>Pădure</th>
-                            <th>Lux</th>
-                            <th>Distanță ↕️</th>
-                            <th>Acțiuni</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                        <tr><td colspan="7" class="empty-state">Nu există date încărcate.</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <p style="text-align: right; color: #777; font-size: 0.85rem; margin-top: 10px;">Găsite: <b id="countDisplay">0</b> <i>(Click dreapta pe rând pentru Ignore)</i></p>
-        </div>
-
-        <div class="table-section">
-            <h2>📌 Orașe Salvate (Spionate)</h2>
+        <div class="table-section saved">
+            <h2>Orase Salvate</h2>
             <div style="overflow-x: auto;">
                 <table id="savedTable">
                     <thead>
                         <tr>
-                            <th>Jucător</th>
-                            <th>Oraș</th>
+                            <th>Jucator</th>
+                            <th>Oras</th>
                             <th>Coordonate</th>
-                            <th>Pădure</th>
+                            <th>Padure</th>
                             <th>Lux</th>
-                            <th>Distanță ↕️</th>
-                            <th>Acțiuni</th>
+                            <th>Distanta</th>
+                            <th>Actiuni</th>
                         </tr>
                     </thead>
                     <tbody id="savedTableBody">
-                        <tr><td colspan="7" class="empty-state">Nu ai salvat niciun oraș încă.</td></tr>
+                        <tr><td colspan="7" class="empty-state">Nu ai salvat niciun oras.</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
+        <div class="table-section ignored">
+            <h2>Orase Ignorate</h2>
+            <div style="overflow-x: auto;">
+                <table id="ignoredTable">
+                    <thead>
+                        <tr>
+                            <th>Jucator</th>
+                            <th>Oras</th>
+                            <th>Coordonate</th>
+                            <th>Padure</th>
+                            <th>Lux</th>
+                            <th>Distanta</th>
+                            <th>Actiuni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ignoredTableBody">
+                        <tr><td colspan="7" class="empty-state">Nu ai ignorat niciun oras.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="table-section main">
+            <h2>Lista Principala (Inactivi)</h2>
+            <div style="overflow-x: auto;">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>Jucator</th>
+                            <th>Oras</th>
+                            <th>Coordonate</th>
+                            <th>Padure</th>
+                            <th>Lux</th>
+                            <th>Distanta</th>
+                            <th>Actiuni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr><td colspan="7" class="empty-state">Nu exista date incarcate.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="pagination">
+                <button class="btn" id="btnPrev" onclick="changePage(-1)">Anterior</button>
+                <span id="pageInfo">Pagina 1 din 1</span>
+                <button class="btn" id="btnNext" onclick="changePage(1)">Urmator</button>
+            </div>
+            <p style="text-align: right; color: #777; font-size: 0.85rem; margin-top: 10px;">Total gasite in lista principala: <b id="countDisplay">0</b></p>
+        </div>
+
         <div class="footer">
-            Build generat automat | Versiunea 3.0 (LocalStorage Enabled) | Data Build: <b>Iunie 2026</b>
+            Build generat automat | Versiunea 4.0 | Data Build: <b>Iunie 2026</b>
         </div>
     </div>
 </div>
 
 <script>
     let playersData = []; 
-    // Încărcăm datele salvate din browser sau inițializăm cu array-uri goale
     let savedCities = JSON.parse(localStorage.getItem('ika_saved')) || [];
     let ignoredCities = JSON.parse(localStorage.getItem('ika_ignored')) || [];
+    
+    let currentPage = 1;
+    const itemsPerPage = 15;
 
-    // Funcție pentru a genera un ID unic pentru fiecare oraș
     function getCityId(player, coords, city) {
         return `${player}_${coords}_${city}`;
     }
@@ -186,23 +224,18 @@
     function saveToLocal() {
         localStorage.setItem('ika_saved', JSON.stringify(savedCities));
         localStorage.setItem('ika_ignored', JSON.stringify(ignoredCities));
-        updateIgnoredCounter();
-    }
-
-    function updateIgnoredCounter() {
-        document.getElementById('ignoredCount').innerText = ignoredCities.length;
     }
 
     function fetchDataFromServer() {
-        showStatus('info', 'Se descarcă datele de pe server...');
+        showStatus('info', 'Se descarca datele de pe server...');
         fetch('inactive.html')
             .then(response => {
-                if (!response.ok) throw new Error('Nu am găsit inactive.html pe server.');
+                if (!response.ok) throw new Error('Nu am gasit inactive.html pe server.');
                 return response.text();
             })
             .then(html => {
                 parseHTMLData(html);
-                showStatus('success', 'Date încărcate cu succes!');
+                showStatus('success', 'Date incarcate cu succes!');
             })
             .catch(error => {
                 showStatus('error', error.message);
@@ -215,7 +248,7 @@
         const reader = new FileReader();
         reader.onload = function(e) {
             parseHTMLData(e.target.result);
-            showStatus('success', 'Date extrase din fișierul local!');
+            showStatus('success', 'Date extrase din fisierul local!');
         };
         reader.readAsText(file);
     }
@@ -235,7 +268,6 @@
                 const rows = el.querySelectorAll('tbody tr');
                 rows.forEach(row => {
                     const cells = row.querySelectorAll('td');
-                    // Index: 0: City | 2: Coords | 4: Wood | 5: Tradegood
                     if (cells.length >= 6) {
                         const city = cells[0].textContent.trim();
                         const coords = cells[2].textContent.trim();
@@ -263,8 +295,7 @@
             }
         });
         
-        applyFilters();
-        updateIgnoredCounter();
+        applyFilters(true);
     }
 
     function calculateDistance(coords, startX, startY) {
@@ -274,105 +305,136 @@
         } catch (e) { return 9999; }
     }
 
-    // Funcții de acțiune
+    // Actiuni Butoane
     function toggleSave(cityId) {
         if (savedCities.includes(cityId)) {
-            savedCities = savedCities.filter(id => id !== cityId); // Scoatem din salvate
+            savedCities = savedCities.filter(id => id !== cityId);
         } else {
-            savedCities.push(cityId); // Adăugăm la salvate
+            savedCities.push(cityId);
+            ignoredCities = ignoredCities.filter(id => id !== cityId); // Scoatem din ignore daca exista
         }
         saveToLocal();
-        applyFilters(); // Re-randăm tabelele
+        applyFilters(false);
     }
 
-    function ignoreCity(cityId, cityName) {
-        if (confirm(`Sigur vrei să ignori orașul "${cityName}"? Nu va mai apărea în listă.`)) {
-            if (!ignoredCities.includes(cityId)) {
-                ignoredCities.push(cityId);
-            }
-            // Dacă era și în salvate, îl scoatem de acolo
-            savedCities = savedCities.filter(id => id !== cityId);
-            saveToLocal();
-            applyFilters();
+    function toggleIgnore(cityId) {
+        if (ignoredCities.includes(cityId)) {
+            ignoredCities = ignoredCities.filter(id => id !== cityId);
+        } else {
+            ignoredCities.push(cityId);
+            savedCities = savedCities.filter(id => id !== cityId); // Scoatem din salvari daca exista
         }
+        saveToLocal();
+        applyFilters(false);
     }
 
-    function resetIgnored() {
-        if (ignoredCities.length === 0) {
-            alert("Nu ai niciun oraș ignorat.");
-            return;
-        }
-        if (confirm("Ești sigur că vrei să resetezi lista de orașe ignorate? Ele vor reapărea în tabel.")) {
-            ignoredCities = [];
-            saveToLocal();
-            applyFilters();
-        }
+    function changePage(delta) {
+        currentPage += delta;
+        applyFilters(false);
     }
 
-    function applyFilters() {
+    function applyFilters(resetPage = false) {
+        if (resetPage) currentPage = 1;
+
         const startX = parseInt(document.getElementById('baseX').value) || 57;
         const startY = parseInt(document.getElementById('baseY').value) || 70;
         const maxDist = parseFloat(document.getElementById('distSlider').value);
         const searchQuery = document.getElementById('searchInput').value.toLowerCase();
         
-        const tbodyMain = document.getElementById('tableBody');
-        const tbodySaved = document.getElementById('savedTableBody');
-        
         if (playersData.length === 0) return;
 
-        // Pas 1: Calculăm distanța și eliminăm orașele IGNORATE complet
+        // Calculam distantele pentru toate intrarile si aplicam filtrele globale (cautare si distanta)
         let processedData = playersData.map(item => {
             return { ...item, dist: calculateDistance(item.coords, startX, startY) };
-        }).filter(item => !ignoredCities.includes(item.id)); // <-- Filtrul de Ignore
-
-        // Pas 2: Aplicăm filtrele de căutare și distanță
-        let filteredData = processedData.filter(item => {
+        }).filter(item => {
             const matchSearch = item.player.toLowerCase().includes(searchQuery) || item.city.toLowerCase().includes(searchQuery);
             const matchDist = item.dist <= maxDist;
             return matchSearch && matchDist;
         });
 
-        // Pas 3: Sortăm
-        filteredData.sort((a, b) => a.dist - b.dist);
+        processedData.sort((a, b) => a.dist - b.dist);
 
-        // Pas 4: Împărțim datele în "Main" și "Saved"
-        let mainHTML = '';
-        let savedHTML = '';
-        let mainCount = 0;
+        let mainArray = [];
+        let savedArray = [];
+        let ignoredArray = [];
 
-        filteredData.forEach(item => {
-            const distColor = item.dist === 0 ? "color: green; font-weight: bold;" : "";
-            const isSaved = savedCities.includes(item.id);
-            
-            // Generăm rândul, incluzând evenimentul de Click Dreapta (contextmenu) pentru Ignore
-            const rowHTML = `
-                <tr oncontextmenu="event.preventDefault(); ignoreCity('${item.id}', '${item.city}')">
-                    <td style="font-weight:600; color:#2c3e50;">${item.player}</td>
-                    <td>${item.city}</td>
-                    <td>${item.coords}</td>
-                    <td><b style="color:#27ae60;">${item.wood}</b></td>
-                    <td><b style="color:#8e44ad;">${item.lux}</b></td>
-                    <td style="${distColor}">${item.dist.toFixed(2)}</td>
-                    <td>
-                        <button class="btn btn-small ${isSaved ? 'btn-danger' : 'btn-success'}" onclick="toggleSave('${item.id}')">
-                            ${isSaved ? '❌ Scoate' : '📌 Salvează'}
-                        </button>
-                    </td>
-                </tr>
-            `;
-
-            if (isSaved) {
-                savedHTML += rowHTML;
+        // Impartim datele in cele 3 categorii
+        processedData.forEach(item => {
+            if (ignoredCities.includes(item.id)) {
+                ignoredArray.push(item);
+            } else if (savedCities.includes(item.id)) {
+                savedArray.push(item);
             } else {
-                mainHTML += rowHTML;
-                mainCount++;
+                mainArray.push(item);
             }
         });
 
-        tbodyMain.innerHTML = mainHTML || `<tr><td colspan="7" class="empty-state">Niciun oraș în lista principală.</td></tr>`;
-        tbodySaved.innerHTML = savedHTML || `<tr><td colspan="7" class="empty-state">Nu ai salvat niciun oraș conform filtrelor actuale.</td></tr>`;
-        
-        document.getElementById('countDisplay').innerText = mainCount;
+        // Randare Salvate
+        let savedHTML = '';
+        savedArray.forEach(item => {
+            savedHTML += createRowHTML(item, 'saved');
+        });
+        document.getElementById('savedTableBody').innerHTML = savedHTML || `<tr><td colspan="7" class="empty-state">Nu ai salvat niciun oras conform filtrelor.</td></tr>`;
+
+        // Randare Ignorate
+        let ignoredHTML = '';
+        ignoredArray.forEach(item => {
+            ignoredHTML += createRowHTML(item, 'ignored');
+        });
+        document.getElementById('ignoredTableBody').innerHTML = ignoredHTML || `<tr><td colspan="7" class="empty-state">Nu ai ignorat niciun oras conform filtrelor.</td></tr>`;
+
+        // Logica Paginare pentru Lista Principala
+        const totalItems = mainArray.length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+        if (currentPage > totalPages) currentPage = totalPages;
+
+        const startIdx = (currentPage - 1) * itemsPerPage;
+        const paginatedMain = mainArray.slice(startIdx, startIdx + itemsPerPage);
+
+        // Randare Principala
+        let mainHTML = '';
+        paginatedMain.forEach(item => {
+            mainHTML += createRowHTML(item, 'main');
+        });
+        document.getElementById('tableBody').innerHTML = mainHTML || `<tr><td colspan="7" class="empty-state">Niciun oras in lista principala.</td></tr>`;
+
+        // Update UI Paginare
+        document.getElementById('countDisplay').innerText = totalItems;
+        document.getElementById('pageInfo').innerText = `Pagina ${currentPage} din ${totalPages}`;
+        document.getElementById('btnPrev').disabled = currentPage === 1;
+        document.getElementById('btnNext').disabled = currentPage === totalPages || totalPages === 0;
+    }
+
+    function createRowHTML(item, type) {
+        const distColor = item.dist === 0 ? "color: green; font-weight: bold;" : "";
+        let actionButtons = '';
+
+        if (type === 'main') {
+            actionButtons = `
+                <button class="btn btn-small btn-success" onclick="toggleSave('${item.id}')">Salveaza</button>
+                <button class="btn btn-small btn-danger" onclick="toggleIgnore('${item.id}')">Ignora</button>
+            `;
+        } else if (type === 'saved') {
+            actionButtons = `
+                <button class="btn btn-small btn-warning" onclick="toggleSave('${item.id}')">Elimina</button>
+            `;
+        } else if (type === 'ignored') {
+            actionButtons = `
+                <button class="btn btn-small btn-warning" onclick="toggleIgnore('${item.id}')">Revoca Ignore</button>
+            `;
+        }
+
+        return `
+            <tr>
+                <td style="font-weight:600; color:#2c3e50;">${item.player}</td>
+                <td>${item.city}</td>
+                <td>${item.coords}</td>
+                <td><b style="color:#27ae60;">${item.wood}</b></td>
+                <td><b style="color:#8e44ad;">${item.lux}</b></td>
+                <td style="${distColor}">${item.dist.toFixed(2)}</td>
+                <td class="action-cell">${actionButtons}</td>
+            </tr>
+        `;
     }
 
     function showStatus(type, message) {
@@ -380,11 +442,6 @@
         box.className = 'status ' + type;
         box.innerHTML = message;
     }
-
-    // Inițializare counter pe load
-    window.onload = function() {
-        updateIgnoredCounter();
-    };
 </script>
 
 </body>
